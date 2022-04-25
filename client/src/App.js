@@ -1,28 +1,23 @@
 import $ from "jquery";
 import "./App.css";
-import { useState, useEffect } from "react";
-import buildApi from "./Utils/Api/index.js";
-
+import { useState, useEffect, useCallback } from "react";
+import formatSelectOptions from "./Utils/formatSelectOptions";
 import validateInput from "./Utils/validateInput.js";
 import Form from "./Components/Form/Form";
 import FormSelect from "./Components/Form/FormSelect/FormSelect";
-const API = buildApi();
-function getRandomColor(url, body, setState) {
-	API.makePostRequest(url, body)
-		.then((data) => setState((previous) => data.rgb))
-		.catch((e) => console.log(e));
-}
-function getColors(url, setState) {
-	API.makeGetRequest(url)
-		.then((data) => setState((previous) => data.colors))
-		.catch((e) => console.log(e));
-}
+import colorQuery from "./Controller/Color";
 
 function App() {
 	const [rgb, setRgb] = useState("255,255,255");
 	const [color, setColor] = useState(false);
-	const [header, setHeader] = useState("color");
-	function handlePostSubmit(e) {
+	const [header, setHeader] = useState("white");
+	const [value, setValue] = useState("");
+
+	useEffect(() => {
+		handleGetRequest();
+	}, []);
+
+	const handlePostSubmit = useCallback((e) => {
 		e.preventDefault();
 		//this sole job is to get the payload
 		let payload = {};
@@ -40,29 +35,8 @@ function App() {
 		});
 		// console.log(payload);
 		const url = "http://localhost:8080/colors";
-		getRandomColor(url, payload, setRgb);
-	}
-	useEffect(() => {
-		handleGetRequest();
+		colorQuery.getRandomColor(url, payload, setRgb);
 	}, []);
-	function formatSelectOptions(obj) {
-		const arr = Object.entries(obj);
-		let data = [];
-		arr.forEach(([key, value], idx) => {
-			let entity = { id: (idx += 1), label: key, value: value };
-			data.push(entity);
-		});
-		return data;
-	}
-	function handleGetRequest(params = null) {
-		let url = "http://localhost:8080/colors";
-		if (params !== null) {
-			url = url + "/" + params;
-		}
-		getColors(url, setColor);
-	}
-
-	console.log("this is color");
 	return (
 		<>
 			<header style={{ background: `rgb(${rgb})` }} className="mainHeader">
@@ -70,19 +44,57 @@ function App() {
 			</header>
 			<main>
 				<section>
-					<h2>My favorite color is {rgb}</h2>
+					<h2>
+						My favorite color is {header} or {rgb}
+					</h2>
 				</section>
+				<div className="row">
+					<div className="col-12">
+						<h5>Select your favorite color:</h5>
+					</div>
+					<div className="col-3 offset-3">
+						<FormSelect
+							name="currentColor"
+							value={value}
+							handleSelectOnChange={handleSelectOnChange}
+							options={color && formatSelectOptions(color)}
+						/>
+					</div>
+				</div>
 				<Form handlePostSubmit={handlePostSubmit} />
-				<FormSelect
-					name="currentColor"
-					setHeader={setHeader}
-					setRgb={setRgb}
-					options={color && formatSelectOptions(color)}
-				/>
 			</main>
 			<footer></footer>
 		</>
 	);
+
+	function handleSelectOnChange(e) {
+		setValue((previous) => {
+			return e.target.value;
+		});
+		setRgb((previous) => {
+			return e.target.value;
+		});
+		//loops through select options
+		const options = $('select[name="currentColor"] option');
+		let name = null;
+		options.map((idx, option) => {
+			//matches the option with the option that has been selected
+			if (option.value === e.target.value) {
+				name = option.innerHTML;
+			}
+		});
+		setHeader((previous) => {
+			return name;
+		});
+	}
+
+	function handleGetRequest(params = null) {
+		let url = "http://localhost:8080/colors";
+		if (params !== null) {
+			url = url + "/" + params;
+		}
+		colorQuery.getColors(url, setColor);
+	}
 }
 
 export default App;
